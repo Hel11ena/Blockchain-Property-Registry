@@ -1,127 +1,56 @@
-from typing import Optional
-from blockchain import Blockchain
+from blockchain import PropertyRegistry
 
-"""
-Simple CLI-like usage demo for a Blockchain-based Land/Property Registration System.
-No external dependencies; runs on Python 3.10+.
+def main():
+    registry = PropertyRegistry()
 
-Key operations:
-- register_property(property_id, owner, location, area_sqft, survey_no)
-- transfer_property(property_id, current_owner, new_owner, note)
-- lookup_owner(property_id)
-- show_history(property_id)
-"""
+    while True:
+        print("\n====== Blockchain Property Registry ======")
+        print("1. Register new property")
+        print("2. Transfer property")
+        print("3. View property history")
+        print("4. Check current owner")
+        print("5. Validate blockchain")
+        print("6. Exit")
 
-# Initialize the blockchain (tweak difficulty for faster/slower PoW)
-bc = Blockchain(difficulty=2)
+        choice = input("Enter your choice: ").strip()
 
+        if choice == "1":
+            prop_id = input("Enter Property ID: ")
+            owner = input("Enter Owner Name: ")
+            location = input("Enter Location: ")
+            area = input("Enter Area (sqft): ")
+            survey = input("Enter Survey Number: ")
+            registry.register_property(prop_id, owner, location, area, survey)
 
-def register_property(
-    property_id: str,
-    owner: str,
-    location: str,
-    area_sqft: float,
-    survey_no: str,
-) -> None:
-    """
-    Register a NEW property. Prevent duplicate registration of the same property_id.
-    """
-    if bc.is_property_registered(property_id):
-        print(f"[X] Registration failed: Property '{property_id}' is already registered to '{bc.current_owner(property_id)}'.")
-        return
+        elif choice == "2":
+            prop_id = input("Enter Property ID: ")
+            current_owner = input("Enter Current Owner: ")
+            new_owner = input("Enter New Owner: ")
+            note = input("Enter Note (optional): ")
+            registry.transfer_property(prop_id, current_owner, new_owner, note)
 
-    meta = {
-        "location": location,
-        "area_sqft": area_sqft,
-        "survey_no": survey_no,
-    }
-    block = bc.add_block("REGISTER", property_id, owner, meta)
-    print(f"[✓] Registered property '{property_id}' to '{owner}'. Block #{block.index} | Hash: {block.hash[:12]}...")
+        elif choice == "3":
+            prop_id = input("Enter Property ID: ")
+            registry.show_property_history(prop_id)
 
+        elif choice == "4":
+            prop_id = input("Enter Property ID: ")
+            owner = registry.get_current_owner(prop_id)
+            if owner:
+                print(f"Current owner of '{prop_id}' is '{owner}'.")
+            else:
+                print("Property not found.")
 
-def transfer_property(
-    property_id: str,
-    current_owner: str,
-    new_owner: str,
-    note: str = "Ownership transfer",
-) -> None:
-    """
-    Transfer ownership if the current_owner matches the blockchain's last recorded owner.
-    """
-    latest_owner: Optional[str] = bc.current_owner(property_id)
+        elif choice == "5":
+            valid = registry.blockchain.validate_chain()
+            print(f"[✓] Blockchain valid: {valid}")
 
-    if latest_owner is None:
-        print(f"[X] Transfer failed: Property '{property_id}' is not registered.")
-        return
+        elif choice == "6":
+            print("Exiting... Goodbye!")
+            break
 
-    if latest_owner != current_owner:
-        print(f"[X] Transfer denied: '{current_owner}' is not the current owner (current owner: '{latest_owner}').")
-        return
-
-    meta = {"note": note}
-    block = bc.add_block("TRANSFER", property_id, new_owner, meta)
-    print(f"[✓] Transferred '{property_id}' from '{current_owner}' to '{new_owner}'. Block #{block.index} | Hash: {block.hash[:12]}...")
-
-
-def lookup_owner(property_id: str) -> None:
-    owner = bc.current_owner(property_id)
-    if owner is None:
-        print(f"[i] Property '{property_id}' is not registered.")
-    else:
-        print(f"[i] Current owner of '{property_id}': {owner}")
-
-
-def show_history(property_id: str) -> None:
-    history = bc.property_history(property_id)
-    if not history:
-        print(f"[i] No records found for property '{property_id}'.")
-        return
-
-    print(f"\n--- History for Property '{property_id}' ---")
-    for b in history:
-        if b.action == "REGISTER":
-            print(
-                f"Block #{b.index} | {b.action} | Owner: {b.owner} | "
-                f"Location: {b.meta.get('location')} | Area(sqft): {b.meta.get('area_sqft')} | "
-                f"SurveyNo: {b.meta.get('survey_no')} | Hash: {b.hash[:12]}..."
-            )
         else:
-            print(
-                f"Block #{b.index} | {b.action} | New Owner: {b.owner} | "
-                f"Note: {b.meta.get('note')} | Hash: {b.hash[:12]}..."
-            )
-    print("--- End of History ---\n")
-
-
-def validate_chain() -> None:
-    ok = bc.is_chain_valid()
-    print(f"[✓] Blockchain valid: {ok}" if ok else "[X] Blockchain INVALID!")
-
+            print("Invalid choice. Please try again.")
 
 if __name__ == "__main__":
-    # --- Demo flow you can show in README screenshots/logs ---
-
-    # Register two properties
-    register_property("PROP-CHN-001", owner="Alice", location="Chennai, Plot-45", area_sqft=1200, survey_no="S-9087")
-    register_property("PROP-DEL-002", owner="Charlie", location="Delhi, Sector-9", area_sqft=980, survey_no="S-2211")
-
-    # Attempt duplicate registration (should fail)
-    register_property("PROP-CHN-001", owner="Eve", location="Chennai, Plot-45", area_sqft=1200, survey_no="S-9087")
-
-    # Lookup owners
-    lookup_owner("PROP-CHN-001")
-    lookup_owner("PROP-DEL-002")
-    lookup_owner("PROP-NOPE-404")  # not registered
-
-    # Transfer ownership (success)
-    transfer_property("PROP-CHN-001", current_owner="Alice", new_owner="Bob", note="Sale deed #A123")
-
-    # Transfer ownership (failure: wrong current owner)
-    transfer_property("PROP-DEL-002", current_owner="Bob", new_owner="Daisy", note="Attempted unauthorized transfer")
-
-    # Show histories
-    show_history("PROP-CHN-001")
-    show_history("PROP-DEL-002")
-
-    # Validate chain integrity
-    validate_chain()
+    main()
